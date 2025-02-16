@@ -1,0 +1,5 @@
+djangorestframework
+channels
+stripe
+googlemaps
+django-mailgun
