@@ -8,7 +8,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "email", "nom", "prenom", "role", "mot_de_passe", "telephone", "photo_profil"]
+        fields = ["id", "email", "nom", "role", "mot_de_passe", "telephone"]
         extra_kwargs = {
             "role": {"required": False},  # Rôle optionnel, par défaut "PARTICIPANT"
         }

@@ -53,7 +53,6 @@ class SignUpView(APIView):
                         "id": user.id,
                         "email": user.email,
                         "nom": user.nom,
-                        "prenom": user.prenom,
                         "role": user.role,
                     },
                 },

@@ -6,8 +6,6 @@ import secrets
 from django.contrib.auth import get_user_model
 
 class Evenement(models.Model):
-    
-
     # Identifiant unique de l'événement
     id = models.AutoField(primary_key=True)
 
@@ -20,6 +18,9 @@ class Evenement(models.Model):
     longitude = models.FloatField()
     capacite_max = models.IntegerField()
     date_creation = models.DateTimeField(auto_now_add=True)
+    # Nouveau champ pour la photo de l'événement
+    photo = models.ImageField(upload_to='evenements/', null=True, blank=True)
+    evenementLibre = models.BooleanField(default=False)
 
     # Lien avec l'utilisateur (l'organisateur)
     organisateur = models.ForeignKey(

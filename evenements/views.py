@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +11,7 @@ from .serializers import EvenementSerializer
 
 class CreerEvenementView(APIView):
     permission_classes = [IsAuthenticated]  # ✅ Seuls les utilisateurs authentifiés peuvent accéder
+    parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
         """Créer un événement uniquement si l'utilisateur est ORGANISATEUR ou ADMIN."""
