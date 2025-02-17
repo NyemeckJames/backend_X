@@ -7,6 +7,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import User, Evenement
+from rest_framework.decorators import api_view, permission_classes
+from .models import Evenement
+from .serializers import EvenementSerializer
 from .serializers import EvenementSerializer
 
 class CreerEvenementView(APIView):
@@ -50,3 +53,12 @@ class EvenementListView(APIView):
 
         # Retourner la réponse JSON
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])  # L'utilisateur doit être connecté
+def evenements_par_organisateur(request,orgid):
+    organisateur = orgid
+    print("id : ",organisateur)  # Récupère l'utilisateur connecté
+    evenements = Evenement.objects.filter(organisateur=organisateur)  # Filtre par organisateur
+    serializer = EvenementSerializer(evenements, many=True)
+    return Response(serializer.data)
