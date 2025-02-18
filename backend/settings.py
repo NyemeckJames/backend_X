@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,6 +30,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+STRIPE_SECRET_KEY = "sk_test_51Qtn57RxrQ04pcxqXAxBeWQenXmxG3RdwzKSkXcbsXNRk83oUCIE64CnUyTUV2LtBifr9GUpAqVjUJtPNTzL9qC500id06sdyE"
+STRIPE_PUBLIC_KEY = "pk_test_51Qtn57RxrQ04pcxqSeMpp6T1hKFwxNKzR7d7Gl2YRHnrG24DkW7HhCwtOutNlEOMx8QJsFCpoH0FIC36UIWUOR6500lvkRmwLc"
 
 # Application definition
 
@@ -45,13 +48,14 @@ INSTALLED_APPS = [
     'billets',
     'evenements',
 ]
+AUTH_USER_MODEL = 'user.User' 
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # ✅ Utilisation de JWT
+        'rest_framework_simplejwt.authentication.JWTAuthentication', 
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',  # ✅ Protection par défaut
+        'rest_framework.permissions.IsAuthenticated',  
     ),
 }
 

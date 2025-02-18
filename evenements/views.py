@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import User, Evenement
 from .serializers import EvenementSerializer
+from billets.models import Billet
 
 class CreerEvenementView(APIView):
     permission_classes = [IsAuthenticated]  # ✅ Seuls les utilisateurs authentifiés peuvent accéder
@@ -50,3 +51,11 @@ class EvenementListView(APIView):
 
         # Retourner la réponse JSON
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class UserEvenementsList(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        billets = Billet.objects.filter(participant=request.user).select_related("evenement")
+        evenements = [billet.evenement for billet in billets]
+        serializer = EvenementSerializer(evenements, many=True)
+        return Response(serializer.data)
