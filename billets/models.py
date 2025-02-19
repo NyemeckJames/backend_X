@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 # Create your models here.
 from django.db import models
@@ -20,7 +21,7 @@ class Billet(models.Model):
     participant = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="billets"
+        related_name="billets", null=True, blank=True
     )
 
     # Informations sur le billet
