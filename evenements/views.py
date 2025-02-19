@@ -45,8 +45,14 @@ class EvenementListView(APIView):
     Vue pour récupérer la liste de tous les événements existants dans la base de données.
     """
     def get(self, request, *args, **kwargs):
-        # Récupérer tous les événements de la base de données
-        evenements = Evenement.objects.all()
+
+        if search_query:
+            evenements = Evenement.objects.filter(
+                titre__icontains=search_query
+            )  # Filtrage sur le titre
+
+        else:
+            evenements = Evenement.objects.all()
 
         # Sérialiser les événements
         serializer = EvenementSerializer(evenements, many=True)
