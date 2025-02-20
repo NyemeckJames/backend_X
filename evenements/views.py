@@ -48,7 +48,7 @@ class EvenementListView(APIView):
     def get(self, request, *args, **kwargs):
         # Récupérer tous les événements de la base de données
         evenements = Evenement.objects.all()
-
+        
         # Sérialiser les événements
         serializer = EvenementSerializer(evenements, many=True)
 
@@ -64,10 +64,11 @@ class UserEvenementsList(APIView):
         return Response(serializer.data)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])  # L'utilisateur doit être connecté
-def evenements_par_organisateur(request,orgid):
-    organisateur = orgid
+@permission_classes([IsAuthenticated])  # L'utilisateur doit être connecté
+def evenements_par_organisateur(request):
+    organisateur = request.user
     print("id : ",organisateur)  # Récupère l'utilisateur connecté
     evenements = Evenement.objects.filter(organisateur=organisateur)  # Filtre par organisateur
     serializer = EvenementSerializer(evenements, many=True)
     return Response(serializer.data)
+

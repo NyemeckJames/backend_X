@@ -21,6 +21,7 @@ class Evenement(models.Model):
     # Nouveau champ pour la photo de l'événement
     photo = models.ImageField(upload_to='evenements/', null=True, blank=True)
     evenementLibre = models.BooleanField(default=False)
+    prix = models.IntegerField(default=20000)
 
     # Lien avec l'utilisateur (l'organisateur)
     organisateur = models.ForeignKey(

@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from billets.models import Billet
+from .models import User
 
 
 from .serializers import UserSerializer
@@ -109,6 +110,7 @@ def create_checkout_session(request):
 class PaymentSuccess(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request,session_id, *args, **kwargs):
+        
         stripe.api_key = settings.STRIPE_SECRET_KEY
         session = stripe.checkout.Session.retrieve(session_id)
 
@@ -116,6 +118,11 @@ class PaymentSuccess(APIView):
         evenement_id = session.metadata.get("evenement_id")
         prix = session.metadata.get("prix")
         evenement = get_object_or_404(Evenement, id=evenement_id)
+        if evenement.billets_disponibles <= 0:
+            return JsonResponse(
+                {"error": "Plus de billets disponibles pour cet événement."},
+                status=400
+            )
         
         # Récupérer l'utilisateur connecté
         user = request.user
@@ -127,6 +134,9 @@ class PaymentSuccess(APIView):
                 type_billet=Billet.Type.PAYANT,  # Puisque c'est payant
                 prix=prix,  # Assumer que l'événement a un prix
             )
+            # Décrémenter le nombre de billets disponibles
+            evenement.billets_disponibles -= 1
+            evenement.save()
         else:
             return JsonResponse({
                                     "titre": evenement.titre,
@@ -146,43 +156,71 @@ class PaymentSuccess(APIView):
             "date": evenement.date_heure.strftime("%d/%m/%Y"),
             "billet_id": billet.id,  # Ajouter l'ID du billet dans la réponse
         })
+
 class RegisterEventView(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self, request,event_id, *args, **kwargs):
+
+    def post(self, request, event_id, *args, **kwargs):
         evenement = get_object_or_404(Evenement, id=event_id)
-        # Récupérer l'utilisateur connecté
         user = request.user
-        print("user : ", user)
+        print("Utilisateur :", user)
+
+        # Vérifier si des billets sont encore disponibles
+        if evenement.billets_disponibles <= 0:
+            return JsonResponse(
+                {"error": "Plus de billets disponibles pour cet événement."},
+                status=400
+            )
 
         # Vérifier si l'événement est gratuit
-        if evenement.evenementLibre:  # Si l'événement est gratuit
-            billet_existant = Billet.objects.get(evenement=evenement, participant=user)
-            if not billet_existant:  # Si aucun billet n'existe, on en crée un
+        if evenement.evenementLibre:
+            billet_existant = Billet.objects.filter(evenement=evenement, participant=user).first()
+            print("Billet existant : ", billet_existant)
+            
+            if not billet_existant:
+                # Créer le billet et décrémenter le nombre de billets disponibles
                 billet = Billet.objects.create(
                     evenement=evenement,
                     participant=user,
-                    type_billet=Billet.Type.GRATUIT,  # Billet gratuit
-                    prix=0.00,  # Pas de prix pour un événement gratuit
+                    type_billet=Billet.Type.GRATUIT,
+                    prix=0.00,
                 )
+
+                # Décrémenter le nombre de billets disponibles
+                evenement.billets_disponibles -= 1
+                evenement.save()
+
+                return JsonResponse({
+                    "titre": evenement.titre,
+                    "description": evenement.description,
+                    "lieu": evenement.lieu,
+                    "date": evenement.date_heure.strftime("%d/%m/%Y"),
+                    "billet_id": billet.id,
+                    "billets_restants": evenement.billets_disponibles,  # Info utile pour l'affichage
+                })
             else:
                 return JsonResponse({
-                                        "titre": evenement.titre,
-                                        "description": evenement.description,
-                                        "lieu": evenement.lieu,
-                                        "date": evenement.date_heure.strftime("%d/%m/%Y"),
-                                        "billet_id": billet_existant.id,  # Retourner l'ID du billet dans la réponse
-                                    })
+                    "titre": evenement.titre,
+                    "description": evenement.description,
+                    "lieu": evenement.lieu,
+                    "date": evenement.date_heure.strftime("%d/%m/%Y"),
+                    "billet_id": billet_existant.id,
+                    "billets_restants": evenement.billets_disponibles,
+                })
+        
         else:
             return JsonResponse({"error": "L'événement est payant, veuillez procéder au paiement."}, status=400)
-
-        return JsonResponse({
-            "titre": evenement.titre,
-            "description": evenement.description,
-            "lieu": evenement.lieu,
-            "date": evenement.date_heure.strftime("%d/%m/%Y"),
-            "billet_id": billet.id,  # Retourner l'ID du billet dans la réponse
-        })
-
+class GetUserByID(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        user = User.objects.filter(id = user_id).first()
+        if user:
+            return JsonResponse({
+                "name" : user.nom,
+                "email" : user.email,
+                "telephone": user.telephone
+            })
+        return JsonResponse({"error": "Utilisateur inexistant"}, status=404)
+        
     
     
     
