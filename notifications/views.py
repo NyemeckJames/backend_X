@@ -10,6 +10,8 @@ from django.http import JsonResponse
 from django.utils.timezone import now
 from .models import Notification, Evenement, NotificationParticipant
 from collections import defaultdict
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 class ListeNotificationsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -62,6 +64,21 @@ class EnvoyerNotificationView(APIView):
             NotificationParticipant(notification=notification, participant=participant) for participant in participants
         ]
         NotificationParticipant.objects.bulk_create(notifications_participants)
+        
+        # 🔥 Envoi via WebSocket
+        channel_layer = get_channel_layer()
+        for participant in participants:
+            async_to_sync(channel_layer.group_send)(
+                f"user_{participant.id}",
+                {
+                    "type": "send_notification",
+                    "notification": {
+                        "message": message,
+                        "evenement": evenement.titre,
+                        "date": notification.date_envoi.strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                },
+            )
 
         return JsonResponse({"message": "Notification envoyée avec succès à tous les participants."}, status=201)
 

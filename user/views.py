@@ -221,6 +221,21 @@ class GetUserByID(APIView):
             })
         return JsonResponse({"error": "Utilisateur inexistant"}, status=404)
         
-    
+
+def get_all_users(request):
+    if request.method == "GET":
+        users = User.objects.all().values("id", "nom", "prenom", "email", "role")
+        users_list = [
+            {
+                "id": str(user["id"]),
+                "name": f"{user['nom']} {user['prenom']}".strip(),
+                "email": user["email"],
+                "role": "organizer" if user["role"] == "ORGANISATEUR" else "participant",
+            }
+            for user in users
+        ]
+        return JsonResponse({"users": users_list}, safe=False)
+    return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+   
     
     

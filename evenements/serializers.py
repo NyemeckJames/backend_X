@@ -22,7 +22,11 @@ class EvenementSerializer(serializers.ModelSerializer):
             "evenementLibre",
             "prix",
             "billets_disponibles",
+            "organisateur",
             "organisateur_nom",
             "organisateur_prenom",
             "organisateur_telephone",
         ]
+        extra_kwargs = {
+            "organisateur": {"required": True},  # Rendre obligatoire
+        }

@@ -2,8 +2,9 @@ from django.db import models
 from user.models import User
 # Create your models here.
 from django.db import models
-import secrets
-from django.contrib.auth import get_user_model
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 
 class Evenement(models.Model):
     # Identifiant unique de l'événement
@@ -39,4 +40,5 @@ class Evenement(models.Model):
     class Meta:
         ordering = ["date_heure"]  # Tri des événements par date de l'événement
         
+import evenements.signals
 

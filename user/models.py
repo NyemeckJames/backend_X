@@ -26,7 +26,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
-        ADMIN = "ADMIN", "Admin"
+        ADMIN = "ADMINISTRATEUR", "Admin"
         ORGANISATEUR = "ORGANISATEUR", "Organisateur"
         PARTICIPANT = "PARTICIPANT", "Participant"
 

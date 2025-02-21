@@ -14,7 +14,7 @@ from .serializers import EvenementSerializer
 from billets.models import Billet
 
 class CreerEvenementView(APIView):
-    permission_classes = [IsAuthenticated]  # ✅ Seuls les utilisateurs authentifiés peuvent accéder
+    permission_classes = [IsAuthenticated]  
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
@@ -33,7 +33,7 @@ class CreerEvenementView(APIView):
         data["organisateur"] = user.id  # Associer l'événement à l'utilisateur connecté
 
         # Sérialisation des données et validation
-        serializer = EvenementSerializer(data=data)
+        serializer = EvenementSerializer(data=data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
