@@ -73,9 +73,13 @@ class EnvoyerNotificationView(APIView):
                 {
                     "type": "send_notification",
                     "notification": {
+                        "id": notification.id,
                         "message": message,
-                        "evenement": evenement.titre,
-                        "date": notification.date_envoi.strftime("%Y-%m-%d %H:%M:%S"),
+                        "evenement_titre": evenement.titre,
+                        "evenement_id": evenement.id,
+                        "date_envoi": notification.date_envoi.strftime("%Y-%m-%d %H:%M:%S"),
+                        "organisateur_nom": evenement.organisateur.nom,
+                        "organisateur_prenom":evenement.organisateur.prenom
                     },
                 },
             )
