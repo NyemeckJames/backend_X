@@ -14,5 +14,6 @@ dependencies = [
     "djangorestframework-simplejwt>=5.4.0",
     "googlemaps>=4.10.0",
     "pillow>=11.1.0",
+    "qrcode>=8.0",
     "stripe>=11.5.0",
 ]

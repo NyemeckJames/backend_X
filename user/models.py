@@ -4,6 +4,7 @@ from django.db import models
 import secrets
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission
 from django.db import models
+from django.utils.crypto import get_random_string
 
 
 class UserManager(BaseUserManager):
@@ -39,7 +40,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_inscription = models.DateTimeField(auto_now_add=True)
     photo_profil = models.URLField(blank=True, null=True)
     telephone = models.CharField(max_length=20, blank=True, null=True)
-
+    is_email_verified = models.BooleanField(default=False)
+    password_reset_token = models.CharField(max_length=64, blank=True, null=True)
+    email_verification_token = models.CharField(max_length=64, unique=True,blank=True, null=True)
     # Champs pour l'authentification
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  
@@ -56,3 +59,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.nom} {self.prenom} ({self.email})"
+    def generate_email_verification_token(self):
+        """Génère un token unique pour la vérification de l'email."""
+        self.email_verification_token = get_random_string(64)
+        self.save()
+    def generate_password_reset_token(self):
+        """Génère un token unique pour la réinitialisation du mot de passe."""
+        self.password_reset_token = get_random_string(64)
+        self.save()

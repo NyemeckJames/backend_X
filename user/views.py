@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from billets.models import Billet
 from .models import User
-
+from django.core.mail import send_mail
 
 from .serializers import UserSerializer
 
@@ -31,6 +31,9 @@ class LoginView(APIView):
         print("User is :",user)
 
         if user is not None:
+            if not user.is_email_verified:
+                return Response({"detail": "Veuillez vérifier votre adresse email avant de vous connecter."}, status=status.HTTP_403_FORBIDDEN)
+
             # Génération des tokens JWT
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -52,9 +55,24 @@ class LoginView(APIView):
 class SignUpView(APIView):
     permission_classes = [AllowAny] 
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        print(request.data)
+        data = request.data.copy()  # Crée une copie pour modifier les données
+        data.pop("confirmPassword", None)  # Supprime confirmPassword s'il existe
+        print("data : ", data)
+        serializer = UserSerializer(data=data)
         if serializer.is_valid():
             user = serializer.save()
+            user.generate_email_verification_token()  # Génération du token
+
+            # Envoi de l'email de confirmation
+            verification_link = f"{settings.FRONTEND_URL}/verify-email?token={user.email_verification_token}"
+            send_mail(
+                "Vérifiez votre adresse email",
+                f"Bonjour {user.nom},\n\nCliquez sur ce lien pour vérifier votre adresse email : {verification_link}",
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
             return Response(
                 {
                     "message": "Inscription réussie.",
@@ -68,6 +86,66 @@ class SignUpView(APIView):
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        token = request.query_params.get("token")
+        if not token:
+            return Response({"error": "Token manquant"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email_verification_token=token)
+            user.is_email_verified = True
+            user.email_verification_token = None  # Supprimer le token après vérification
+            user.save()
+            return Response({"message": "Email vérifié avec succès."}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "Token invalide"}, status=status.HTTP_400_BAD_REQUEST)
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        try:
+            user = User.objects.get(email=email)
+            user.generate_password_reset_token()
+
+            reset_link = f"{settings.FRONTEND_URL}/reset-password?token={user.password_reset_token}"
+            send_mail(
+                "Réinitialisation du mot de passe",
+                f"Bonjour {user.nom},\n\nCliquez sur ce lien pour réinitialiser votre mot de passe : {reset_link}",
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+
+            return Response({"message": "Un email de réinitialisation a été envoyé."}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "Aucun utilisateur avec cet email"}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not token or not new_password:
+            return Response({"error": "Token et nouveau mot de passe requis"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(password_reset_token=token)
+            user.set_password(new_password)
+            user.password_reset_token = None  # Supprimer le token après réinitialisation
+            user.save()
+            return Response({"message": "Mot de passe réinitialisé avec succès."}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "Token invalide"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @csrf_exempt
 def create_checkout_session(request):
