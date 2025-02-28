@@ -262,6 +262,15 @@ class GetAllEvents(APIView):
         serializer = EventSerializer(events, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
         
+class GetEventByID(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request, event_id):
+        try:
+            event = Event.objects.get(id=event_id)
+            serializer = EventSerializer(event)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Event.DoesNotExist:
+            return Response({"error": "Événement introuvable"}, status=status.HTTP_404_NOT_FOUND)
 
 
 

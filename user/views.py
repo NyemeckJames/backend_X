@@ -15,6 +15,8 @@ from billets.models import Billet
 from .models import User
 from django.core.mail import send_mail
 
+from rest_framework import status
+from rest_framework.response import Response
 from .serializers import UserSerializer
 
 # Create your views here.
@@ -52,6 +54,7 @@ class LoginView(APIView):
             }, status=status.HTTP_200_OK)
         return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+
 class SignUpView(APIView):
     permission_classes = [AllowAny] 
     def post(self, request):
@@ -63,15 +66,96 @@ class SignUpView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             user.generate_email_verification_token()  # Génération du token
-
             # Envoi de l'email de confirmation
             verification_link = f"{settings.FRONTEND_URL}/verify-email?token={user.email_verification_token}"
+            html_content = f"""\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion Réussie</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            color: #333;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }}
+        .email-container {{
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            max-width: 550px;
+            margin: 0 auto;
+            text-align: center;
+        }}
+        .logo {{
+            width: 140px;
+            margin: 0 auto 20px auto;
+            display: block;
+        }}
+        .header {{
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #222;
+        }}
+        .content {{
+            font-size: 16px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }}
+        .button {{
+            background-color: #0a3c72;
+            color: white;
+            padding: 14px 24px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-block;
+            transition: background 0.3s ease;
+        }}
+        .button:hover {{
+            background-color: #002347;
+        }}
+        .footer {{
+            font-size: 14px;
+            color: #777;
+            margin-top: 25px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        
+        <div class="header">Inscription Réussie</div>
+        <div class="content">
+            Hey {user.nom} ! Félicitations 🎉 <br>
+            Votre inscription à <strong>Mboa Event</strong> a été validée avec succès. <br>
+            Cliquez sur le bouton ci-dessous pour vous connecter à votre compte :
+        </div>
+        <a href={verification_link} class="button">Accéder à mon compte</a>
+        <div class="footer">
+            Merci,<br>
+            L'équipe Mboa Event
+        </div>
+    </div>
+</body>
+</html>
+"""
+
             send_mail(
-                "Vérifiez votre adresse email",
+                "Inscription Réussie à Mboa Event",
                 f"Bonjour {user.nom},\n\nCliquez sur ce lien pour vérifier votre adresse email : {verification_link}",
                 settings.DEFAULT_FROM_EMAIL,
                 [user.email],
                 fail_silently=False,
+                html_message=html_content
             )
             return Response(
                 {
@@ -85,6 +169,8 @@ class SignUpView(APIView):
                 },
                 status=status.HTTP_201_CREATED,
             )
+        else:
+            print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -100,8 +186,23 @@ class VerifyEmailView(APIView):
             user = User.objects.get(email_verification_token=token)
             user.is_email_verified = True
             user.email_verification_token = None  # Supprimer le token après vérification
-            user.save()
-            return Response({"message": "Email vérifié avec succès."}, status=status.HTTP_200_OK)
+            user.save()# 🔥 Générer un token JWT automatiquement
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            return Response(
+                {
+                    "message": "Email vérifié avec succès.",
+                    "token": access_token,
+                    "user": {
+                        "id": user.id,
+                        "email": user.email,
+                        "nom": user.nom,
+                        "role": user.role,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
         except User.DoesNotExist:
             return Response({"error": "Token invalide"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -145,6 +246,7 @@ class ResetPasswordView(APIView):
             return Response({"message": "Mot de passe réinitialisé avec succès."}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({"error": "Token invalide"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @csrf_exempt

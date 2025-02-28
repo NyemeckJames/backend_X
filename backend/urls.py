@@ -26,7 +26,8 @@ urlpatterns = [
     path('billets/', include('billets.urls')),
     path('notifications/', include('notifications.urls')),
     path('room/',include('room.urls')),
-    path('event/',include('event.urls'))
+    path('event/',include('event.urls')),
+    path('message/',include('user_messages.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

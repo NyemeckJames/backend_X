@@ -30,6 +30,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         ADMIN = "ADMINISTRATEUR", "Admin"
         ORGANISATEUR = "ORGANISATEUR", "Organisateur"
         PARTICIPANT = "PARTICIPANT", "Participant"
+    class ValidationStatus(models.TextChoices):
+        EN_ATTENTE = "EN_ATTENTE", "En attente"
+        ACCEPTE = "ACCEPTE", "Accepté"
+        REFUSE = "REFUSE", "Refusé"
 
     # L'ID sera généré aléatoirement sous forme de chaîne
     id = models.AutoField(primary_key=True)
@@ -43,6 +47,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_email_verified = models.BooleanField(default=False)
     password_reset_token = models.CharField(max_length=64, blank=True, null=True)
     email_verification_token = models.CharField(max_length=64, unique=True,blank=True, null=True)
+    status_validation = models.CharField(
+        max_length=20, choices=ValidationStatus.choices, default=ValidationStatus.EN_ATTENTE
+    )
+    nom_entreprise = models.CharField(max_length=255, blank=True, null=True)
+    facebook = models.URLField(blank=True, null=True)
+    twitter = models.URLField(blank=True, null=True)
+    numero_cni = models.CharField(max_length=50, blank=True, null=True)
+    photo_cni = models.ImageField(upload_to="cni/", blank=True, null=True)
+    types_evenements = models.JSONField(default=list, blank=True)
+    taille_evenements = models.CharField(max_length=50, blank=True, null=True)
+    mode_financement = models.CharField(max_length=50, blank=True, null=True)
     # Champs pour l'authentification
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  
