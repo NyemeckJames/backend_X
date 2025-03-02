@@ -14,10 +14,16 @@ import json
 from billets.models import Billet
 from .models import User
 from django.core.mail import send_mail
-
+from event.models import Event
+from ticket.models import Ticket, TicketPurchase
 from rest_framework import status
 from rest_framework.response import Response
 from .serializers import UserSerializer
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from io import BytesIO
+import base64
+import qrcode
 
 # Create your views here.
 class LoginView(APIView):
@@ -248,95 +254,199 @@ class ResetPasswordView(APIView):
             return Response({"error": "Token invalide"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 @csrf_exempt
 def create_checkout_session(request):
     if request.method == "POST":
         data = json.loads(request.body)
-        print(data)
         evenement_id = data.get("evenement_id")
-        prix = data.get("prix")  # En centimes (ex: 25000 XAF = 25000)
+        tickets_data = data.get("tickets")  # Liste des tickets sélectionnés
+       
 
         try:
+            # Récupérer l'événement
+            evenement = Event.objects.get(id=evenement_id)
+
+            # Préparer les line_items pour Stripe
+            line_items = []
+            total_amount = 0
+
+            for ticket_data in tickets_data:
+                ticket_id = ticket_data.get("ticket_id")
+                quantity = ticket_data.get("quantity")
+
+                # Récupérer le ticket depuis la base de données
+                ticket = Ticket.objects.get(id=ticket_id)
+                if ticket.quantity < quantity:
+                    return JsonResponse(
+                        {"error": f"Plus assez de places disponibles pour le ticket {ticket.name}"},
+                        status=400,
+                    )
+               
+                # Ajouter le ticket aux line_items
+                line_items.append({
+                    "price_data": {
+                        "currency": "xaf",
+                        "product_data": {
+                            "name": f"{ticket.name} - {evenement.name}",
+                        },
+                        "unit_amount": int(ticket.price),  # Convertir en centimes
+                    },
+                    "quantity": quantity,
+                })
+
+                # Calculer le montant total
+                total_amount += ticket.price * quantity
+
+            # Créer la session de paiement Stripe
             stripe.api_key = settings.STRIPE_SECRET_KEY
             session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "xaf",
-                            "product_data": {
-                                "name": "Participation à l'événement",
-                            },
-                            "unit_amount": prix,  # Prix en centimes
-                        },
-                        "quantity": 1,
-                    }
-                ],
+                line_items=line_items,
                 mode="payment",
-                success_url="http://localhost:3000/interfaces/participant/payment-sucess?session_id={CHECKOUT_SESSION_ID}",
+                success_url="http://localhost:3000/interface/payment-sucess?session_id={CHECKOUT_SESSION_ID}",
                 cancel_url="http://localhost:3000/cancel",
                 metadata={
-                    "evenement_id": evenement_id,  # Ajout des métadonnées
-                    "prix": prix
+                    "evenement_id": evenement_id,
+                    "tickets": json.dumps(tickets_data),  # Envoyer les tickets dans les métadonnées
                 }
             )
+
             return JsonResponse({"url": session.url})
         except Exception as e:
             print(str(e))
             return JsonResponse({"error": str(e)}, status=500)
-        
 
 class PaymentSuccess(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self, request,session_id, *args, **kwargs):
-        
+
+    def post(self, request, session_id, *args, **kwargs):
         stripe.api_key = settings.STRIPE_SECRET_KEY
-        session = stripe.checkout.Session.retrieve(session_id)
+        global_tickets_state = []
 
-        # Récupérer l'événement à partir des métadonnées
-        evenement_id = session.metadata.get("evenement_id")
-        prix = session.metadata.get("prix")
-        evenement = get_object_or_404(Evenement, id=evenement_id)
-        if evenement.billets_disponibles <= 0:
-            return JsonResponse(
-                {"error": "Plus de billets disponibles pour cet événement."},
-                status=400
-            )
-        
-        # Récupérer l'utilisateur connecté
-        user = request.user
-        billet_existant = Billet.objects.filter(evenement=evenement, participant=user).first()
-        if not billet_existant:  # Si aucun billet n'existe, on en crée un
-            billet = Billet.objects.create(
-                evenement=evenement,
-                participant=user,
-                type_billet=Billet.Type.PAYANT,  # Puisque c'est payant
-                prix=prix,  # Assumer que l'événement a un prix
-            )
-            # Décrémenter le nombre de billets disponibles
-            evenement.billets_disponibles -= 1
-            evenement.save()
-        else:
+        try:
+            # Récupérer la session Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
+
+            # Récupérer les métadonnées
+            evenement_id = session.metadata.get("evenement_id")
+            tickets_data = json.loads(session.metadata.get("tickets"))
+
+            # Récupérer l'événement
+            evenement = get_object_or_404(Event, id=evenement_id)
+
+            # Récupérer l'utilisateur connecté
+            user = request.user
+
+            # Vérifier si des enregistrements de TicketPurchase existent déjà pour cette session
+            existing_purchases = TicketPurchase.objects.filter(
+                event=evenement,
+                buyer=user,
+                session_id=session_id
+            ).exists()
+
+            if existing_purchases:
+                return JsonResponse(
+                    {"error": "Les tickets ont déjà été achetés pour cette session."},
+                    status=400,
+                )
+
+            # Créer les enregistrements de TicketPurchase
+            for ticket_data in tickets_data:
+                ticket_id = ticket_data['ticket_id']
+                quantity = ticket_data['quantity']
+
+                # Récupérer le ticket
+                ticket = Ticket.objects.get(id=ticket_id)
+
+                # Vérifier la disponibilité des tickets
+                if ticket.quantity < quantity:
+                    return JsonResponse(
+                        {"error": f"Plus assez de places disponibles pour le ticket {ticket.name}"},
+                        status=400,
+                    )
+
+                # Créer un TicketPurchase pour chaque ticket
+                for _ in range(quantity):
+                    TicketPurchase.objects.create(
+                        ticket=ticket,
+                        event=evenement,
+                        buyer=user,
+                        status="valid",  # Statut initial
+                        session_id=session_id  # Stocker l'ID de session Stripe
+                    )
+                    global_tickets_state.append(
+                        {
+                            "ticket_id":ticket_id,
+                            "name": ticket.name,
+                            "quantity":quantity,
+                            "price":ticket.price
+                        }
+                    )
+                # Mettre à jour la quantité disponible du ticket
+                ticket.quantity -= quantity
+                ticket.save()
+
+            # Envoyer un email de confirmation avec les tickets
+            self.send_ticket_email(user, evenement, global_tickets_state)
+
+            # Retourner une réponse JSON
             return JsonResponse({
-                                    "titre": evenement.titre,
-                                    "description": evenement.description,
-                                    "lieu": evenement.lieu,
-                                    "date": evenement.date_heure.strftime("%d/%m/%Y"),
-                                    "billet_id": billet_existant.id,  # Retourner l'ID du billet dans la réponse
-                                })
-        # Créer un billet pour l'utilisateur
-        
+                "success": True,
+                "message": "Paiement traité avec succès.",
+                "event": {
+                    "name": evenement.name,
+                    "date": evenement.start_datetime,
+                },
+                "tickets": global_tickets_state,
+            })
 
-        # Retourner des informations sur l'événement et le billet
-        return JsonResponse({
-            "titre": evenement.titre,
-            "description": evenement.description,
-            "lieu": evenement.lieu,
-            "date": evenement.date_heure.strftime("%d/%m/%Y"),
-            "billet_id": billet.id,  # Ajouter l'ID du billet dans la réponse
+        except Exception as e:
+            print(e)
+            return JsonResponse({"error": str(e)}, status=500)
+
+    def send_ticket_email(self, buyer, event, tickets_data):
+        # Générer les QR codes pour chaque ticket
+        qr_codes = []
+        for ticket_data in tickets_data:
+            ticket_id = ticket_data['ticket_id']
+            quantity = ticket_data['quantity']
+
+            for _ in range(quantity):
+                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr.add_data(f"ticket_id={ticket_id}&event_id={event.id}&buyer_id={buyer.id}")
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+
+                # Convertir l'image en bytes
+                buffer = BytesIO()
+                img.save(buffer, format="PNG")
+                qr_codes.append(buffer.getvalue())
+
+        # Convertir les QR codes en base64 pour les intégrer dans le HTML
+        qr_code_images = []
+        for qr_code in qr_codes:
+            qr_code_base64 = base64.b64encode(qr_code).decode('utf-8')
+            qr_code_images.append(f"data:image/png;base64,{qr_code_base64}")
+
+        # Préparer l'email
+        subject = f"Vos tickets pour {event.name}"
+        message = render_to_string("emails/ticket_confirmation.html", {
+            "buyer": buyer,
+            "event": event,
+            "tickets_data": tickets_data,
+            "qr_code_images": qr_code_images,  # Passer les QR codes au template
         })
 
+        email = EmailMessage(
+            subject,
+            message,
+            "jamesnyemeck@gmail.com",
+            [buyer.email],
+        )
+        email.content_subtype = "html"  # Indiquer que le contenu est au format HTML
+
+        # Envoyer l'email
+        email.send()
 class RegisterEventView(APIView):
     permission_classes = [IsAuthenticated]
 

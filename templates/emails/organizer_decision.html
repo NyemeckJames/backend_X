@@ -1,0 +1,18 @@
+<!-- emails/organizer_decision.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Décision de votre demande</title>
+</head>
+<body>
+    <h1>Décision de votre demande</h1>
+    <p>Bonjour {{ user.nom }},</p>
+    <p>Votre demande pour devenir organisateur a été <strong>{{ decision }}</strong>.</p>
+    {% if commentaire %}
+        <p>Commentaire de l'administrateur : {{ commentaire }}</p>
+    {% endif %}
+    <p>Merci pour votre compréhension.</p>
+</body>
+</html>

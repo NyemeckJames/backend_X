@@ -21,6 +21,7 @@ class TicketPurchase(models.Model):
     qr_code = models.ImageField(upload_to="tickets/qrcodes/", blank=True, null=True)
     purchase_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="valid")
+    session_id = models.CharField(max_length=255, blank=True, null=True)  # Nouveau champ
 
     def __str__(self):
         return f"Billet {self.id} - {self.buyer.nom} {self.buyer.prenom} ({self.event.name})"

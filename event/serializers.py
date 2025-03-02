@@ -25,7 +25,7 @@ class EventSerializer(serializers.ModelSerializer):
     addresses = AddressSerializer(many=True, read_only=True)
     speakers = SpeakerSerializer(many=True, read_only=True)
     tickets = TicketSerializer(many=True, read_only=True)
-    gallery = EventGallerySerializer(many=True, read_only=True)
+    event_images = EventGallerySerializer(many=True, read_only=True)
 
     class Meta:
         model = Event

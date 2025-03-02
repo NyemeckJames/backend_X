@@ -1,0 +1,53 @@
+<!-- emails/ticket_confirmation.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation de votre achat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .ticket {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .ticket h3 {
+            margin-top: 0;
+        }
+        .qr-code {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Merci pour votre achat, {{ buyer.nom }} !</h1>
+    <p>Voici vos tickets pour l'événement <strong>{{ event.name }}</strong>.</p>
+
+    <h2>Détails des tickets :</h2>
+    <ul>
+        {% for ticket_data in tickets_data %}
+            <li>
+                {{ ticket_data.quantity }} x {{ ticket_data.name }} ({{ ticket_data.price }} XAF)
+            </li>
+        {% endfor %}
+    </ul>
+
+    <h2>Vos billets :</h2>
+    {% for qr_code_image in qr_code_images %}
+        <div class="ticket">
+            <h3>Billet {{ forloop.counter }}</h3>
+            <div class="qr-code">
+                <img src="{{ qr_code_image }}" alt="QR Code du billet" />
+            </div>
+        </div>
+    {% endfor %}
+
+    <p>Présentez ces billets à l'entrée de l'événement.</p>
+</body>
+</html>
