@@ -88,8 +88,23 @@ class GérerDemandeOrganisateurView(APIView):
             user = demande.user
             user.role = User.Role.ORGANISATEUR
             user.save()
-
+        self.notify_user(demande.user, statut, commentaire)
         return Response({"message": f"Demande {statut.lower()} avec succès."}, status=status.HTTP_200_OK)
+    def notify_user(self, user, decision, commentaire):
+        subject = f"Votre demande pour devenir organisateur a été {decision.lower()}"
+        message = render_to_string("emails/organizer_decision.html", {
+            "user": user,
+            "decision": decision,
+            "commentaire": commentaire,
+        })
+        send_mail(
+            subject,
+            message,
+            "jamesnyemeck@gmail.com",
+            [user.email],
+            html_message=message,
+        )   
+    
 
 class ListeDemandesEnAttenteView(ListAPIView):
     permission_classes = [IsAdminUser]
@@ -140,3 +155,5 @@ class ReviewOrganizerRequestView(APIView):
             [user.email],
             html_message=message,
         )   
+        
+        
