@@ -30,6 +30,7 @@ class DemandeOrganisateurSerializer(serializers.ModelSerializer):
     def get_user_info(self, obj):
         """Récupère les informations de l'utilisateur associé à la demande."""
         return {
+            "user_id": obj.user.id,
             "nom": obj.user.nom,
             "prenom": obj.user.prenom,
             "email": obj.user.email,
